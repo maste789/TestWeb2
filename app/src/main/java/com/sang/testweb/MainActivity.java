@@ -58,6 +58,11 @@ public class MainActivity extends AppCompatActivity {
     VideoRenderer otherPeerRenderer;
     PeerConnection peerConnection;
     String roomname = "12345";
+    String Myplatform = "app";
+    String platform;
+    String web ="web";
+    String app = "app";
+
 
     private Socket socket;
     private boolean createOffer = false;
@@ -132,16 +137,27 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("Test", "CreateTurn: "+SIGNALING_URI);
                     Log.d("SOCKET", "init: "+ socketID);
                     Log.d("SOCKET", "Connection success : " + socket.connected());
+                    if(platform == "") {
+                        socket.emit("platform", roomname, Myplatform);
+                    }
                 }
             });
-
             //룸조인
             socket.emit("roomjoin", roomname);
+
             socket.on(CREATEOFFER, new Emitter.Listener() {
                 @Override
                 public void call(Object... args) {
                     createOffer = true;
                     peerConnection.createOffer(sdpObserver, new MediaConstraints());
+                }
+            }).on("platform", new Emitter.Listener() {
+                @Override
+                public void call(Object... args) {
+                    String obj = args[0].toString();
+
+                    platform = obj;
+                    Log.d("platform",platform);
                 }
             }).on(OFFER, new Emitter.Listener() {
 
@@ -149,14 +165,12 @@ public class MainActivity extends AppCompatActivity {
                 public void call(Object... args) {
                     try {
                         JSONObject obj = (JSONObject) args[0];
-                        Log.d("SDP OFFER" , obj.getString(SDP));
-                        String CREATEOFF = String.valueOf(createOffer);
-                        Log.d("CREATEOFF" , CREATEOFF);
-                        SessionDescription sdp = new SessionDescription(SessionDescription.Type.OFFER,
+                        String type = obj.optString("type");
+                        Log.d("offer" , type);
+                        SessionDescription sdp = new SessionDescription(SessionDescription.Type.fromCanonicalForm(type),
                                 obj.getString(SDP));
                         peerConnection.setRemoteDescription(sdpObserver, sdp);
                         peerConnection.createAnswer(sdpObserver, new MediaConstraints());
-
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
@@ -167,7 +181,10 @@ public class MainActivity extends AppCompatActivity {
                 public void call(Object... args) {
                     try {
                         JSONObject obj = (JSONObject) args[0];
-                        SessionDescription sdp = new SessionDescription(SessionDescription.Type.ANSWER,
+
+                        String type = obj.optString("type");
+                        Log.d("answer" , type);
+                        SessionDescription sdp = new SessionDescription(SessionDescription.Type.fromCanonicalForm(type),
                                 obj.getString(SDP));
                         peerConnection.setRemoteDescription(sdpObserver, sdp);
                     } catch (JSONException e) {
@@ -176,20 +193,23 @@ public class MainActivity extends AppCompatActivity {
                 }
 
             }).on(CANDIDATE, new Emitter.Listener() {
-
                 @Override
                 public void call(Object... args) {
                     try {
                         JSONObject obj = (JSONObject) args[0];
-                        /*if(obj.getString("candidate") != null || obj.getString(SDP) == null){
+                        String tf = String.valueOf(platform.equals(web));
+                        Log.d("plat", tf);
+                        if(platform.equals(web) == true){
+                            Log.d("plat","web" );
                             peerConnection.addIceCandidate(new IceCandidate(obj.getString(SDP_MID),
                                     obj.getInt(SDP_M_LINE_INDEX),
                                     obj.getString("candidate")));
-                        }else if (obj.getString(SDP) != null){*/
+                        }else{
+                            Log.d("plat","app" );
                             peerConnection.addIceCandidate(new IceCandidate(obj.getString(SDP_MID),
                                     obj.getInt(SDP_M_LINE_INDEX),
                                     obj.getString(SDP)));
-                        //}
+                        }
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
@@ -209,11 +229,16 @@ public class MainActivity extends AppCompatActivity {
             peerConnection.setLocalDescription(sdpObserver, sessionDescription);
             try {
                 JSONObject obj = new JSONObject();
+                String type = sessionDescription.type.toString().toLowerCase();
+                obj.put("type", type);
                 obj.put(SDP, sessionDescription.description);
+                Log.d("type sdp" , sessionDescription.type.toString());
                 //obj.put(ROOMNAME , roomname);
                 if (createOffer) {
+                    Log.d("Emit" , "offer ");
                     socket.emit(OFFER, roomname, obj);
                 } else {
+                    Log.d("Emit" , "answer");
                     socket.emit(ANSWER, roomname,obj);
                 }
             } catch (JSONException e) {
@@ -261,8 +286,8 @@ public class MainActivity extends AppCompatActivity {
                 obj.put(SDP_MID, iceCandidate.sdpMid);
                 obj.put(SDP_M_LINE_INDEX, iceCandidate.sdpMLineIndex);
                 obj.put(SDP, iceCandidate.sdp);
+                //obj.put("PLET" , "app");
                 socket.emit(CANDIDATE, roomname,obj);
-                Log.d("CANDIDATE" , iceCandidate.sdp);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
