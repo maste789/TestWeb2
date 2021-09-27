@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
     PeerConnection peerConnection;
     String roomname = "12345";
     String Myplatform = "app";
-    String platform;
+    String platform="";
     String web ="web";
     String app = "app";
 
