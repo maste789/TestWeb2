@@ -7,6 +7,7 @@ import android.content.Context;
 import android.media.AudioManager;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
 import android.widget.VideoView;
@@ -59,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
     PeerConnection peerConnection;
     String roomname = "12345";
     String Myplatform = "app";
-    String platform="";
+    String platform="web";
     String web ="web";
     String app = "app";
 
@@ -84,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
     public void initWebRTC(){
         PeerConnectionFactory.initializeAndroidGlobals(this,true,true,true,null);
         peerConnectionFactory = new PeerConnectionFactory();
+        
 
         VideoCapturerAndroid vc = VideoCapturerAndroid.create(VideoCapturerAndroid.getNameOfFrontFacingDevice());
         //
@@ -120,6 +122,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         ArrayList<PeerConnection.IceServer> iceServers = new ArrayList<>();
         iceServers.add(new PeerConnection.IceServer("turn:3.34.179.97:3478","qtg_acc","1234qwer1919"));
+        iceServers.add(new PeerConnection.IceServer("turn:15.164.229.255:3478","qtg_acc","1234qwer1919"));
+        iceServers.add(new PeerConnection.IceServer( "turn:18.220.11.64:3478","qtg_acc","1234qwer1919"));
         peerConnection = peerConnectionFactory.createPeerConnection(
                 iceServers,
                 new MediaConstraints(),
@@ -137,9 +141,7 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("Test", "CreateTurn: "+SIGNALING_URI);
                     Log.d("SOCKET", "init: "+ socketID);
                     Log.d("SOCKET", "Connection success : " + socket.connected());
-                    if(platform == "") {
-                        socket.emit("platform", roomname, Myplatform);
-                    }
+                    socket.emit("platform", roomname, Myplatform);
                 }
             });
             //룸조인
@@ -149,7 +151,10 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void call(Object... args) {
                     createOffer = true;
-                    peerConnection.createOffer(sdpObserver, new MediaConstraints());
+                    Log.d("CreateOffer" , String.valueOf(createOffer));
+                    MediaConstraints mediaConstraints = new MediaConstraints();
+                    mediaConstraints.optional.add(new MediaConstraints.KeyValuePair("internalSctpDataChannels", "true"));
+                    peerConnection.createOffer(sdpObserver, mediaConstraints);
                 }
             }).on("platform", new Emitter.Listener() {
                 @Override
@@ -166,11 +171,55 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         JSONObject obj = (JSONObject) args[0];
                         String type = obj.optString("type");
+                        Log.d("offer" , String.valueOf(createOffer));
                         Log.d("offer" , type);
-                        SessionDescription sdp = new SessionDescription(SessionDescription.Type.fromCanonicalForm(type),
+                        String sdpset = obj.optString("sdp");
+                        Log.d("answer" , type);
+                        Log.d("answer" , sdpset);
+                        SessionDescription sdp = new SessionDescription(SessionDescription.Type.OFFER,
                                 obj.getString(SDP));
+                        Log.d("answer" , sdp.description);
+                        Log.d("answer" , String.valueOf(sdp.type));
                         peerConnection.setRemoteDescription(sdpObserver, sdp);
-                        peerConnection.createAnswer(sdpObserver, new MediaConstraints());
+
+                        if(platform.equals(web) == true){
+                            Log.d("createanswer" , "오퍼받고 앤서생성직전");
+                            peerConnection.createAnswer(new SdpObserver() {
+                                @Override
+                                public void onCreateSuccess(SessionDescription sessionDescription) {
+                                    peerConnection.setLocalDescription(sdpObserver, sessionDescription);
+                                    try {
+                                        JSONObject obj = new JSONObject();
+                                        String type = sessionDescription.type.toString().toLowerCase();
+                                        obj.put("type", type);
+                                        obj.put(SDP, sessionDescription.description);
+
+                                            Log.d("Emit" , "answer");
+                                            socket.emit(ANSWER, roomname,obj);
+                                    } catch (JSONException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+
+                                @Override
+                                public void onSetSuccess() {
+
+                                }
+
+                                @Override
+                                public void onCreateFailure(String s) {
+                                    Log.d("create Failed" , s);
+                                }
+
+                                @Override
+                                public void onSetFailure(String s) {
+
+                                }
+                            }, new MediaConstraints());
+                        }else{
+                            peerConnection.createAnswer(sdpObserver, new MediaConstraints());
+                        }
+                        Log.d("createanswer" , "오퍼받고 앤서생성직후");
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
@@ -181,9 +230,9 @@ public class MainActivity extends AppCompatActivity {
                 public void call(Object... args) {
                     try {
                         JSONObject obj = (JSONObject) args[0];
-
                         String type = obj.optString("type");
-                        Log.d("answer" , type);
+                        Log.d("answer class" ,"앤서 배치성공");
+
                         SessionDescription sdp = new SessionDescription(SessionDescription.Type.fromCanonicalForm(type),
                                 obj.getString(SDP));
                         peerConnection.setRemoteDescription(sdpObserver, sdp);
@@ -214,7 +263,6 @@ public class MainActivity extends AppCompatActivity {
                         e.printStackTrace();
                     }
                 }
-
             });
             socket.connect();
         } catch (URISyntaxException e) {
@@ -248,17 +296,17 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onSetSuccess() {
-
+            Log.d("SetSuccess" , "성공");
         }
 
         @Override
         public void onCreateFailure(String s) {
-
+            Log.d("create Failed" , s);
         }
 
         @Override
         public void onSetFailure(String s) {
-
+            Log.d("SetFailed" , s);
         }
     };
 
@@ -282,11 +330,11 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onIceCandidate(IceCandidate iceCandidate) {
             try {
+                Log.d("Candidate" , iceCandidate.toString());
                 JSONObject obj = new JSONObject();
                 obj.put(SDP_MID, iceCandidate.sdpMid);
                 obj.put(SDP_M_LINE_INDEX, iceCandidate.sdpMLineIndex);
                 obj.put(SDP, iceCandidate.sdp);
-                //obj.put("PLET" , "app");
                 socket.emit(CANDIDATE, roomname,obj);
             } catch (JSONException e) {
                 e.printStackTrace();
