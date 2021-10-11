@@ -1,23 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     tools:context=".MainActivity">
 
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_weight="0">
+
+        <Button
+            android:id="@+id/buttonclose"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:onClick="Closepeer"
+            android:text="disconnet" />
+
+        <Button
+            android:id="@+id/button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_alignParentLeft="true"
+            android:layout_alignParentTop="true"
+            android:onClick="CreateTurn"
+            android:text="connect" />
+    </LinearLayout>
+
+    <org.webrtc.SurfaceViewRenderer
+        android:id="@+id/bigView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"></org.webrtc.SurfaceViewRenderer>
+
+    <!--
     <android.opengl.GLSurfaceView
         android:id="@+id/view_Call"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent" />-->
 
-    <Button
-        android:id="@+id/button"
-        android:layout_width="wrap_content"
+    <org.webrtc.SurfaceViewRenderer
+        android:id="@+id/smallView"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentLeft="true"
-        android:layout_alignParentTop="true"
-        android:onClick="CreateTurn"
-        android:text="connect" />
-</RelativeLayout>
+        android:layout_weight="1"></org.webrtc.SurfaceViewRenderer>
+
+</LinearLayout>
