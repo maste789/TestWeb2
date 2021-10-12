@@ -92,6 +92,12 @@ public class MainActivity extends AppCompatActivity {
 
     // Web RTC 연결
     public void initWebRTC(){
+
+        // peerconnectionFactory를 생성후 초기화
+
+
+
+
         /*PeerConnectionFactory.initializeAndroidGlobals(this,true,true,true,null);
         peerConnectionFactory = new PeerConnectionFactory();*/
         rootEglBase=EglBase.create();
@@ -111,8 +117,10 @@ public class MainActivity extends AppCompatActivity {
                 .setVideoEncoderFactory(defaultVideoEncoderFactory)
                 .setVideoDecoderFactory(defaultVideoDecoderFactory)
                 .createPeerConnectionFactory();
+        // 장치의 카메라를 사용하는 VideoCapturer 인스턴스 생성
         VideoCapturer videoCapturer=createVideoCapturer();
         MediaConstraints constraints=new MediaConstraints();
+        // Captuer로 부터 VideoSource 생성후 소스로 부터 트랙을 생성.
         VideoSource videoSource=peerConnectionFactory.createVideoSource(false);
         //VideoTrack localVideoTrack= createVideoTrack(videoCapturer,videoSource);
 
@@ -130,7 +138,7 @@ public class MainActivity extends AppCompatActivity {
         localAudioTrack.setEnabled(true);
 
 
-
+        // SurfaceViewRenderer View와 트랙인스턴스를 사용하여 비디오 랜더러 생성.
         remoteVideoView=findViewById(R.id.smallView);
         remoteVideoView.setScalingType(RendererCommon.ScalingType.SCALE_ASPECT_FIT);
         remoteVideoView.init(rootEglBase.getEglBaseContext(), null);
@@ -182,10 +190,12 @@ public class MainActivity extends AppCompatActivity {
                 new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
         mediaConstraints.mandatory.add(
                 new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+
+        // web app 소통을위한 RTCConfiguration 설정값  설정 클래스.
         rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.DISABLED;
         rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXCOMPAT;
         rtcConfig.iceTransportsType = PeerConnection.IceTransportsType.ALL;
-        rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.PLAN_B;
+        rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.PLAN_B; // sdp 규격 ? 설정 .
         rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
         rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
         rtcConfig.candidateNetworkPolicy = PeerConnection.CandidateNetworkPolicy.ALL;
@@ -213,6 +223,7 @@ public class MainActivity extends AppCompatActivity {
             socket.emit("roomjoin", roomname);
 
             socket.on(CREATEOFFER, new Emitter.Listener() {
+                // 내가 먼저 커넥트를 했을시 상대방에서 createoffer를 날려 createoffer를 true로만듬으로써 offer값을 emit시키기위함.
                 @Override
                 public void call(Object... args) {
                     createOffer = true;
@@ -228,7 +239,6 @@ public class MainActivity extends AppCompatActivity {
                     Log.d("platform",platform);
                 }
             }).on(OFFER, new Emitter.Listener() {
-
                 @Override
                 public void call(Object... args) {
                     try {
@@ -259,6 +269,7 @@ public class MainActivity extends AppCompatActivity {
                 }
 
             }).on(CANDIDATE, new Emitter.Listener() {
+                // candidate 받았을시 받은 candidate 추가시켜주는 클래스
                 @Override
                 public void call(Object... args) {
                     try {
@@ -288,6 +299,7 @@ public class MainActivity extends AppCompatActivity {
 
     // Offer < - > response 소통방식은 SDP로 소통함.
     SdpObserver sdpObserver = new SdpObserver() {
+        // create에 성공했을시 createoffer로 offer인지 answer인지 구별후 sdp 를 보내는 클래스
         @Override
         public void onCreateSuccess(SessionDescription sessionDescription) {
             peerConnection.setLocalDescription(sdpObserver, sessionDescription);
@@ -304,23 +316,24 @@ public class MainActivity extends AppCompatActivity {
                     socket.emit(OFFER, roomname, obj);
                 } else {
                     Log.d("Emit" , "answer");
+                    Log.d("Emit", obj.getString("sdp"));
                     socket.emit(ANSWER, roomname,obj);
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
         }
-
+        //setlocal , setremote 성공했을시 클래스
         @Override
         public void onSetSuccess() {
             Log.d("SetSuccess" , "성공");
         }
-
+        //oncreateoffer , oncreateAnswer 실패했을시 발동하는 클래스 에러 체크
         @Override
         public void onCreateFailure(String s) {
             Log.d("create Failed" , s);
         }
-
+        //setlocal , setremote 실패했을시 발동하는 클래스 에러 체크
         @Override
         public void onSetFailure(String s) {
             Log.d("SetFailed" , s);
@@ -328,11 +341,12 @@ public class MainActivity extends AppCompatActivity {
     };
 
     private class peerConnectionObserver  implements PeerConnection.Observer {
+        // 시그널링 상태 체크
         @Override
         public void onSignalingChange(PeerConnection.SignalingState signalingState) {
             Log.d("RTCAPP", "onSignalingChange:" + signalingState.toString());
         }
-
+        //iceserver 커넥팅 상태체크 실패시 FAILED
         @Override
         public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
             Log.d("RTCAPP", "onIceConnectionChange:" + iceConnectionState.toString());
@@ -350,7 +364,7 @@ public class MainActivity extends AppCompatActivity {
         public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {
             Log.d("RTCAPP", "onIceGatheringChange:" + iceGatheringState.toString());
         }
-
+        // candidate 받았을시 candidate 값 보내는 클래스
         @Override
         public void onIceCandidate(IceCandidate iceCandidate) {
             try {
@@ -364,18 +378,18 @@ public class MainActivity extends AppCompatActivity {
                 e.printStackTrace();
             }
         }
-
+        // candidate 삭제 클래스
         @Override
         public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {
 
         }
-
+        //영상출력 비디오트랙 삽입 클래스
         @Override
         public void onAddStream(MediaStream mediaStream) {
             //Log.d("mediaSteam", mediaStream.videoTracks.get(1).toString());
             mediaStream.videoTracks.get(0).addSink(remoteVideoView);
         }
-
+        // 영상 삭제 클래스 구현해야함.
         @Override
         public void onRemoveStream(MediaStream mediaStream) {
             int Len = mediaStream.videoTracks.size();
@@ -387,9 +401,12 @@ public class MainActivity extends AppCompatActivity {
             Log.d("OndataChannel", dataChannel.state().toString());
         }
 
+        //협상 실패시 재협상을 위한 클래스
         @Override
         public void onRenegotiationNeeded() {
-
+            createOffer = true;
+            Log.d("onRenegotiationNeeded" , String.valueOf(createOffer));
+            peerConnection.createOffer(sdpObserver, mediaConstraints);
         }
 
         @Override
@@ -397,6 +414,8 @@ public class MainActivity extends AppCompatActivity {
 
         }
     };
+
+    // 카메라 불러오는 클래스
     private VideoCapturer createVideoCapturer() {
         CameraEnumerator enumerator=new Camera1Enumerator(true);
         String [] devicenames=enumerator.getDeviceNames();
